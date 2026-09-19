@@ -1,6 +1,12 @@
 from pathlib import Path
 from scapy.all import PcapReader, sniff
 
+def safe_handle_packet(packet, packet_handler):
+    try:
+        packet_handler(packet)
+    except Exception as e:
+        print(f"Error handling packet: {e}")
+
 def capture_live(interface, packet_handler, count=0):
     sniff(iface=interface, prn=packet_handler, count=count, store=False)
 
