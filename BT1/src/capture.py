@@ -8,12 +8,17 @@ def safe_handle_packet(packet, packet_handler):
         print(f"Error handling packet: {e}")
 
 def capture_live(interface, packet_handler, count=0):
-    sniff(iface=interface, prn=packet_handler, count=count, store=False)
+    sniff(iface=interface, prn=lambda packet: safe_handle_packet(packet, packet_handler), count=count, store=False,)
 
 def capture_pcap(file_path, packet_handler):
-    if not Path(file_path).is_file():
-        raise FileNotFoundError(f"PCAP file not found: {file_path}")
+    pcap_path = Path(file_path)
 
-    with PcapReader(file_path) as packets:
-        for packet in packets:
-            packet_handler(packet)
+    if not pcap_path.exists():
+        raise FileNotFoundError(f"PCAP file not found: {pcap_path}")
+    
+    try:
+        with PcapReader(pcap_path) as packets:
+            for packet in packets:
+                safe_handle_packet(packet, packet_handler)
+    except Exception as e:
+        print(f"Error reading PCAP file: {e}")
