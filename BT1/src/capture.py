@@ -17,7 +17,7 @@ def capture_pcap(file_path, packet_handler):
         raise FileNotFoundError(f"PCAP file not found: {pcap_path}")
     
     try:
-        with PcapReader(pcap_path) as packets:
+        with PcapReader(str(pcap_path)) as packets:
             for packet in packets:
                 safe_handle_packet(packet, packet_handler)
     except Exception as e:
