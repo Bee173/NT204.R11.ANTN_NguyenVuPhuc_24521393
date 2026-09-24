@@ -1,1 +1,5 @@
 *.pdf
+__pycache__/
+.DS_Store
+*.zip
+BT1/output/
