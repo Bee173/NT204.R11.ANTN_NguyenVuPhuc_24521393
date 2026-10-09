@@ -21,7 +21,7 @@ class FlowTracker:
         self.finished_flows = []
         self._flow_number = 0
 
-    def track_event(self, event):
+    def _track_event_core(self, event):
         event["flow_id"] = None
         event["direction"] = None
         event["track_status"] = "skipped"
@@ -229,3 +229,56 @@ class FlowTracker:
         results = self.finished_flows
         self.finished_flows = []
         return results
+
+
+    def track_event(self, event):
+        import math
+
+        if not isinstance(event, dict):
+            return {
+                "track_status": "error",
+                "track_reason": "event must be a dictionary",
+            }
+
+        event["flow_id"] = None
+        event["direction"] = None
+
+        if event.get("processing_action") == "skip":
+            event["track_status"] = "skipped"
+            return event
+
+        try:
+            for field in ("packet_length", "payload_length"):
+                value = event.get(field, 0)
+                if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                    raise ValueError(f"{field}: invalid byte length")
+
+            timestamp = event.get("timestamp")
+            if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+                raise ValueError("invalid timestamp")
+            if not math.isfinite(timestamp) or timestamp < 0:
+                raise ValueError("invalid timestamp")
+
+            transport = event.get("transport") or {}
+            if not isinstance(transport, dict):
+                raise TypeError("transport must be a dictionary")
+
+            flags = transport.get("tcp_flags")
+            if flags is not None and not isinstance(flags, str):
+                raise TypeError("tcp_flags must be a string")
+
+            for field in ("sequence_number", "acknowledgment_number"):
+                value = transport.get(field)
+                if value is not None and (
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or not 0 <= value < 2 ** 32
+                ):
+                    raise ValueError(f"{field}: invalid TCP sequence")
+
+            return self._track_event_core(event)
+
+        except (AttributeError, TypeError, ValueError, OverflowError) as error:
+            event["track_status"] = "error"
+            event["track_reason"] = str(error)
+            return event

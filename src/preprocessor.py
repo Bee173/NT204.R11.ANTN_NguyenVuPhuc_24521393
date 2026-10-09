@@ -81,6 +81,22 @@ def preprocess_event(event, config=None):
             event[field] = None
             invalid.append(f"{field}: missing or invalid port")
 
+    # Validate byte lengths before flow statistics.
+    for field in ("packet_length", "payload_length"):
+        value = event.get(field)
+
+        if value is None:
+            event[field] = 0 if field == "payload_length" else None
+        elif isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            event[field] = None
+            invalid.append(f"{field}: invalid byte length")
+
+    packet_length = event.get("packet_length")
+    payload_length = event.get("payload_length")
+    if isinstance(packet_length, int) and isinstance(payload_length, int):
+        if payload_length > packet_length:
+            invalid.append("payload_length exceeds packet_length")
+
     # Các object và danh sách luôn có kiểu nhất quán.
     for field in ("network", "transport", "application"):
         value = event.get(field)
