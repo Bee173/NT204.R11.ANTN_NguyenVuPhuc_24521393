@@ -18,7 +18,7 @@ passed = (
     and application.get("method") == "GET"
     and application.get("path") == "/index.html"
     and application.get("version") == "HTTP/1.1"
-    and application.get("headers", {}).get("Host") == "example.com"
+    and application.get("headers", {}).get("host") == "example.com"
     and not event.get("parse_errors")
 )
 
