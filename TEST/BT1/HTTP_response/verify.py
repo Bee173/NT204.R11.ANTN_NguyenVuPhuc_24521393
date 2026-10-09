@@ -18,9 +18,9 @@ passed = (
     and application.get("version") == "HTTP/1.1"
     and application.get("status_code") == 200
     and application.get("reason") == "OK"
-    and headers.get("Content-Type") == "text/plain"
-    and headers.get("Content-Length") == "5"
-    and headers.get("Server") == "IDPS-Test"
+    and headers.get("content-type") == "text/plain"
+    and headers.get("content-length") == "5"
+    and headers.get("server") == "IDPS-Test"
     and application.get("body") == "Hello"
     and not event.get("parse_errors")
 )
