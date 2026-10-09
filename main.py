@@ -1,6 +1,6 @@
 import argparse
 from itertools import count
-
+from src.decoder import decode_event
 from src.capture import capture_live, capture_pcap
 from src.pipeline import parse_packet
 from src.logger import prepare_output, log_event
@@ -25,6 +25,7 @@ def main():
     def handle_packet(packet):
         packet_id = next(packet_counter)
         event = parse_packet(packet, packet_id)
+        event = decode_event(event)
         log_event(event, args.output)
         print(
             f"[{packet_id}] "
