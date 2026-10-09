@@ -1,3 +1,4 @@
+from src.preprocessor import preprocess_event
 import argparse
 from itertools import count
 from src.decoder import decode_event
@@ -26,6 +27,7 @@ def main():
         packet_id = next(packet_counter)
         event = parse_packet(packet, packet_id)
         event = decode_event(event)
+        event = preprocess_event(event)
         log_event(event, args.output)
         print(
             f"[{packet_id}] "
