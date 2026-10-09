@@ -13,6 +13,10 @@ def decode_event(event):
         return event
 
     application = event.get("application") or {}
+    event["decode_errors"].extend(
+        f"character: {error}"
+        for error in application.get("character_decode_errors", [])
+    )
     decoded_any = False
 
     # Giải mã URI, giữ nguyên path gốc.

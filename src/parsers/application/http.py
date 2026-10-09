@@ -24,7 +24,7 @@ def parse_headers(lines):
     return headers
 
 
-def parse_http(packet):
+def _parse_http_fields(packet):
     result = {
         "type": "UNKNOWN",
         "method": None,
@@ -88,5 +88,25 @@ def parse_http(packet):
 
     if separator:
         result["body"] = body
+
+    return result
+
+def parse_http(packet):
+    import base64
+
+    result = _parse_http_fields(packet)
+    result["character_decode_status"] = "skipped"
+    result["character_decode_errors"] = []
+
+    if Raw in packet:
+        raw = bytes(packet[Raw].load)
+        result["raw_payload_b64"] = base64.b64encode(raw).decode("ascii")
+
+        try:
+            raw.decode("utf-8", errors="strict")
+            result["character_decode_status"] = "success"
+        except UnicodeDecodeError as error:
+            result["character_decode_status"] = "partial"
+            result["character_decode_errors"].append(str(error))
 
     return result
