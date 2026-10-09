@@ -118,6 +118,45 @@ class FlowTracker:
                 ):
                     flow["state"] = "ESTABLISHED"
 
+
+            # Theo dõi FIN theo hai chiều và ACK xác nhận FIN.
+            fin_end = flow.setdefault("_fin_end", {})
+            fin_acked = flow.setdefault("_fin_acked", set())
+            transport = event.get("transport") or {}
+            opposite = (
+                "backward" if direction == "forward" else "forward"
+            )
+
+            if "R" in flags:
+                flow["state"] = "RESET"
+
+            elif flow["state"] not in {"CLOSED", "RESET"}:
+                if "A" in flags and opposite in fin_end:
+                    ack = transport.get("acknowledgment_number")
+                    if isinstance(ack, int):
+                        # So sánh TCP sequence theo modulo 2^32.
+                        distance = (ack - fin_end[opposite]) % (2 ** 32)
+                        if distance < 2 ** 31:
+                            fin_acked.add(opposite)
+
+                if "F" in flags:
+                    sequence = transport.get("sequence_number")
+                    payload_length = event.get("payload_length", 0)
+
+                    if isinstance(sequence, int):
+                        fin_end.setdefault(
+                            direction,
+                            (sequence + payload_length + 1) % (2 ** 32),
+                        )
+
+                    flow["state"] = "CLOSING"
+
+                if (
+                    len(fin_end) == 2
+                    and {"forward", "backward"}.issubset(fin_acked)
+                ):
+                    flow["state"] = "CLOSED"
+
         event["flow_id"] = flow["flow_id"]
         event["direction"] = direction
         event["track_status"] = "tracked"
