@@ -2,7 +2,7 @@ from html import unescape
 from urllib.parse import unquote, parse_qsl
 
 
-def decode_event(event, config=None):
+def _decode_event_core(event, config=None):
     config = config or {}
     max_decode_bytes = config.get("max_decode_bytes", 1048576)
     max_form_fields = config.get("max_form_fields", 1000)
@@ -158,3 +158,52 @@ def decode_smtp_event(event):
 
     event["application"] = application
     return event
+
+
+def decode_event(event, config=None):
+    if not isinstance(event, dict):
+        return {
+            "decode_status": "error",
+            "decode_errors": ["event must be a dictionary"],
+        }
+
+    try:
+        if config is not None and not isinstance(config, dict):
+            raise TypeError("config must be a dictionary")
+
+        application = event.get("application")
+        if application is not None and not isinstance(application, dict):
+            raise TypeError("application must be a dictionary or null")
+        application = application or {}
+
+        headers = application.get("headers")
+        if headers is not None:
+            if not isinstance(headers, dict):
+                raise TypeError("headers must be a dictionary or null")
+            if any(
+                not isinstance(name, str) or not isinstance(value, str)
+                for name, value in headers.items()
+            ):
+                raise TypeError("header names and values must be strings")
+
+        for field in ("path", "body", "raw_payload_b64"):
+            value = application.get(field)
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"{field} must be a string or null")
+
+        errors = application.get("character_decode_errors", [])
+        if not isinstance(errors, list) or any(
+            not isinstance(error, str) for error in errors
+        ):
+            raise TypeError("character_decode_errors must be a list of strings")
+
+        length = event.get("payload_length", 0)
+        if isinstance(length, bool) or not isinstance(length, int) or length < 0:
+            raise ValueError("payload_length must be a nonnegative integer")
+
+        return _decode_event_core(event, config)
+
+    except (AttributeError, TypeError, ValueError, LookupError, OverflowError) as error:
+        event["decode_status"] = "error"
+        event["decode_errors"] = [f"decoder: {error}"]
+        return event
