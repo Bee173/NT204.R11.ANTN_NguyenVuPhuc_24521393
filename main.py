@@ -1,3 +1,4 @@
+from src.flow_tracker import FlowTracker
 from src.preprocessor import preprocess_event
 import argparse
 from itertools import count
@@ -22,12 +23,15 @@ def main():
     args = parser.parse_args()
     prepare_output(args.output)
     packet_counter = count(1)
+    tracker = FlowTracker()
 
     def handle_packet(packet):
         packet_id = next(packet_counter)
         event = parse_packet(packet, packet_id)
+        event["packet_length"] = len(packet)
         event = decode_event(event)
         event = preprocess_event(event)
+        event = tracker.track_event(event)
         log_event(event, args.output)
         print(
             f"[{packet_id}] "
