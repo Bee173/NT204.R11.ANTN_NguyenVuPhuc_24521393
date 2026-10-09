@@ -118,7 +118,7 @@ def parse_smtp_command(line):
     return result
 
 
-def parse_smtp(packet):
+def _parse_smtp_fields(packet):
     """
     Parse SMTP command or response.
     """
@@ -157,3 +157,16 @@ def parse_smtp(packet):
     return parse_smtp_command(
         first_line
     )
+
+def parse_smtp(packet):
+    import base64
+
+    result = _parse_smtp_fields(packet)
+
+    if Raw in packet:
+        # Biểu diễn bytes bằng Base64 để lưu được trong JSON.
+        result["raw_payload_b64"] = base64.b64encode(
+            bytes(packet[Raw].load)
+        ).decode("ascii")
+
+    return result
