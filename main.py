@@ -1,11 +1,23 @@
-from src.flow_tracker import FlowTracker
-from src.preprocessor import preprocess_event
 import argparse
+import math
+import time
 from itertools import count
-from src.decoder import decode_event
+from pathlib import Path
+from threading import Event, Lock, Thread
+
 from src.capture import capture_live, capture_pcap
 from src.pipeline import parse_packet
+from src.decoder import decode_event
+from src.preprocessor import preprocess_event
+from src.flow_tracker import FlowTracker
 from src.logger import prepare_output, log_event
+
+
+def positive_timeout(value):
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("Timeout must be positive and finite")
+    return number
 
 
 def build_parser():
@@ -14,16 +26,31 @@ def build_parser():
     source.add_argument("--interface")
     source.add_argument("--pcap")
     parser.add_argument("--output", default="output/events.jsonl")
+    parser.add_argument("--flow-output", default="output/flows.jsonl")
     parser.add_argument("--count", type=int, default=0)
+    parser.add_argument("--tcp-timeout", type=positive_timeout, default=120)
+    parser.add_argument("--udp-timeout", type=positive_timeout, default=30)
     return parser
 
 
 def main():
     parser = build_parser()
     args = parser.parse_args()
+
+    if Path(args.output).resolve() == Path(args.flow_output).resolve():
+        parser.error("--output and --flow-output must be different files")
+
     prepare_output(args.output)
+    prepare_output(args.flow_output)
+
     packet_counter = count(1)
-    tracker = FlowTracker()
+    tracker = FlowTracker(args.tcp_timeout, args.udp_timeout)
+    lock = Lock()
+    stop_timer = Event()
+
+    def write_finished():
+        for flow in tracker.drain_finished():
+            log_event(flow, args.flow_output)
 
     def handle_packet(packet):
         packet_id = next(packet_counter)
@@ -31,20 +58,55 @@ def main():
         event["packet_length"] = len(packet)
         event = decode_event(event)
         event = preprocess_event(event)
-        event = tracker.track_event(event)
-        log_event(event, args.output)
+
+        with lock:
+            # PCAP dùng timestamp packet; live dùng thời gian hiện tại.
+            now = time.time() if args.interface else event.get("timestamp")
+            if now is not None:
+                tracker.expire_flows(now)
+
+            event = tracker.track_event(event)
+
+            # Xuất ngay flow vừa CLOSED/RESET.
+            if now is not None:
+                tracker.expire_flows(now)
+
+            write_finished()
+            log_event(event, args.output)
+
         print(
             f"[{packet_id}] "
-            f"{event['src_ip']} -> {event['dst_ip']} "
-            f"{event['transport_protocol']} "
-            f"{event['application_protocol']}"
+            f"{event.get('src_ip')} -> {event.get('dst_ip')} "
+            f"{event.get('transport_protocol')} "
+            f"{event.get('application_protocol')}"
         )
 
-    if args.interface:
-        capture_live(args.interface, handle_packet, args.count)
+    def check_live_timeout():
+        while not stop_timer.wait(1):
+            with lock:
+                tracker.expire_flows(time.time())
+                write_finished()
 
-    if args.pcap:
-        capture_pcap(args.pcap, handle_packet)
+    timer = None
+    if args.interface:
+        timer = Thread(target=check_live_timeout, daemon=True)
+        timer.start()
+
+    try:
+        if args.interface:
+            capture_live(args.interface, handle_packet, args.count)
+        else:
+            capture_pcap(args.pcap, handle_packet)
+    except KeyboardInterrupt:
+        print("\nStopping capture")
+    finally:
+        stop_timer.set()
+        if timer is not None:
+            timer.join()
+
+        with lock:
+            tracker.flush()
+            write_finished()
 
 
 if __name__ == "__main__":

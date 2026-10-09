@@ -4,8 +4,22 @@ from copy import deepcopy
 
 
 class FlowTracker:
-    def __init__(self):
+    def __init__(self, tcp_timeout=120, udp_timeout=30):
+        import math
+
+        self.timeouts = {
+            "TCP": float(tcp_timeout),
+            "UDP": float(udp_timeout),
+        }
+        if any(
+            not math.isfinite(value) or value <= 0
+            for value in self.timeouts.values()
+        ):
+            raise ValueError("Timeout phải hữu hạn và lớn hơn 0")
+
         self.active_flows = {}
+        self.finished_flows = []
+        self._flow_number = 0
 
     def track_event(self, event):
         event["flow_id"] = None
@@ -36,7 +50,11 @@ class FlowTracker:
         timestamp = event["timestamp"]
 
         if key not in self.active_flows:
-            key_text = json.dumps(key, separators=(",", ":"))
+            self._flow_number += 1
+            key_text = json.dumps(
+                [key, timestamp, self._flow_number],
+                separators=(",", ":"),
+            )
             flow_id = hashlib.sha256(key_text.encode()).hexdigest()[:24]
 
             self.active_flows[key] = {
@@ -168,3 +186,46 @@ class FlowTracker:
             if not name.startswith("_")
         })
         return event
+
+
+    def _finish_flow(self, key, reason):
+        flow = self.active_flows.pop(key)
+        result = deepcopy({
+            name: value
+            for name, value in flow.items()
+            if not name.startswith("_")
+        })
+
+        result["export_reason"] = reason
+        if reason == "idle_timeout":
+            result["state_before_export"] = result["state"]
+            result["state"] = "EXPIRED"
+
+        self.finished_flows.append(result)
+
+    def expire_flows(self, now):
+        import math
+
+        now = float(now)
+        if not math.isfinite(now):
+            raise ValueError("Invalid expiration timestamp")
+
+        for key, flow in list(self.active_flows.items()):
+            if flow["state"] in {"CLOSED", "RESET"}:
+                self._finish_flow(key, "connection_closed")
+            elif now - flow["last_seen"] > self.timeouts[flow["protocol"]]:
+                self._finish_flow(key, "idle_timeout")
+
+    def flush(self):
+        for key, flow in list(self.active_flows.items()):
+            reason = (
+                "connection_closed"
+                if flow["state"] in {"CLOSED", "RESET"}
+                else "capture_end"
+            )
+            self._finish_flow(key, reason)
+
+    def drain_finished(self):
+        results = self.finished_flows
+        self.finished_flows = []
+        return results
