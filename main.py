@@ -20,6 +20,13 @@ def positive_timeout(value):
     return number
 
 
+def positive_integer(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("Value must be greater than 0")
+    return number
+
+
 def build_parser():
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
@@ -30,6 +37,14 @@ def build_parser():
     parser.add_argument("--count", type=int, default=0)
     parser.add_argument("--tcp-timeout", type=positive_timeout, default=120)
     parser.add_argument("--udp-timeout", type=positive_timeout, default=30)
+    parser.add_argument(
+        "--max-decode-bytes", type=positive_integer, default=1048576
+    )
+    parser.add_argument(
+        "--max-form-fields", type=positive_integer, default=1000
+    )
+    parser.add_argument("--allow-invalid", action="store_true")
+    parser.add_argument("--allow-unsupported", action="store_true")
     return parser
 
 
@@ -56,8 +71,14 @@ def main():
         packet_id = next(packet_counter)
         event = parse_packet(packet, packet_id)
         event["packet_length"] = len(packet)
-        event = decode_event(event)
-        event = preprocess_event(event)
+        event = decode_event(event, config={
+            "max_decode_bytes": args.max_decode_bytes,
+            "max_form_fields": args.max_form_fields,
+        })
+        event = preprocess_event(event, config={
+            "skip_invalid": not args.allow_invalid,
+            "skip_unsupported": not args.allow_unsupported,
+        })
 
         with lock:
             # PCAP dùng timestamp packet; live dùng thời gian hiện tại.

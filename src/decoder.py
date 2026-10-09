@@ -2,9 +2,19 @@ from html import unescape
 from urllib.parse import unquote, parse_qsl
 
 
-def decode_event(event):
+def decode_event(event, config=None):
+    config = config or {}
+    max_decode_bytes = config.get("max_decode_bytes", 1048576)
+    max_form_fields = config.get("max_form_fields", 1000)
+
     event["decode_status"] = "skipped"
     event["decode_errors"] = []
+
+    if event.get("application_protocol") in {"HTTP", "SMTP"}:
+        if event.get("payload_length", 0) > max_decode_bytes:
+            event["decode_status"] = "skipped"
+            event["decode_errors"].append("payload exceeds max_decode_bytes")
+            return event
 
     if event.get("application_protocol") == "SMTP":
         return decode_smtp_event(event)
@@ -54,7 +64,7 @@ def decode_event(event):
                     keep_blank_values=True,
                     encoding="utf-8",
                     errors="strict",
-                    max_num_fields=1000,
+                    max_num_fields=max_form_fields,
                 )
                 decoded_any = True
             except (UnicodeDecodeError, ValueError, TypeError) as error:
