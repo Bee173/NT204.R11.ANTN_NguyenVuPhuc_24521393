@@ -19,7 +19,7 @@ class FlowTracker:
 
         self.active_flows = {}
         self.finished_flows = []
-        self._flow_number = 0
+        self._flow_generations = {}
 
     def _track_event_core(self, event):
         event["flow_id"] = None
@@ -50,9 +50,9 @@ class FlowTracker:
         timestamp = event["timestamp"]
 
         if key not in self.active_flows:
-            self._flow_number += 1
+            self._flow_generations[key] = self._flow_generations.get(key, 0) + 1
             key_text = json.dumps(
-                [key, timestamp, self._flow_number],
+                [key, timestamp, self._flow_generations[key]],
                 separators=(",", ":"),
             )
             flow_id = hashlib.sha256(key_text.encode()).hexdigest()[:24]
