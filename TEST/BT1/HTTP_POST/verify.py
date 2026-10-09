@@ -18,8 +18,8 @@ passed = (
     and application.get("method") == "POST"
     and application.get("path") == "/login"
     and application.get("version") == "HTTP/1.1"
-    and headers.get("Host") == "example.com"
-    and headers.get("Content-Length") == "20"
+    and headers.get("host") == "example.com"
+    and headers.get("content-length") == "20"
     and application.get("body") == "username=test&pass=1"
     and not event.get("parse_errors")
 )
