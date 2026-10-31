@@ -1,0 +1,2 @@
+alert tcp any any -> any 80 (msg:"Unsupported PCRE"; pcre:"/admin/"; sid:100301; rev:1;)
+alert udp any any -> any 53 (msg:"Valid after unsupported"; sid:100302; rev:1;)
