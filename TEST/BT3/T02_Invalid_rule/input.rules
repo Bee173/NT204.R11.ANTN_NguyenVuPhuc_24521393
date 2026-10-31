@@ -1,0 +1,2 @@
+alert tcp any any -> any 80
+alert tcp any any -> any 80 (msg:"Valid after invalid"; sid:100201; rev:1;)
