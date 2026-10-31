@@ -1,0 +1,2 @@
+{"raw": "alert tcp any any -> any 80 (msg:\"HTTP request\"; sid:100001; rev:1;)", "source": "input.rules", "line_number": 3}
+{"raw": "alert udp any any <> any 53 (msg:\"DNS traffic\"; sid:100002; rev:1;)", "source": "input.rules", "line_number": 6}
