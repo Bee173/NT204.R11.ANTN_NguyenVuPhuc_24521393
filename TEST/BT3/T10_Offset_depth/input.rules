@@ -1,0 +1,1 @@
+alert tcp any any -> any 80 (msg:"Bounded content"; content:"evil"; offset:4; depth:4; sid:101001; rev:1;)
