@@ -1,0 +1,1 @@
+{"event_id":"complete_detection","timestamp":1700000018.25,"transport_protocol":"TCP","application_protocol":"HTTP","src_ip":"10.0.0.5","src_port":52133,"dst_ip":"192.168.1.20","dst_port":80,"flow_id":"F1401","payload_length":3,"transport":{"tcp_flags":"PA"},"application":{"body":"../"},"flow_context":{"direction":"to_server","state":"ESTABLISHED"}}
