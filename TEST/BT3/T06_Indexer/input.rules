@@ -1,0 +1,3 @@
+alert tcp 10.0.0.0/24 any -> 192.168.1.10 80 (msg:"Specific TCP"; sid:100601; rev:1;)
+alert tcp any any -> any any (msg:"Any TCP"; sid:100602; rev:1;)
+alert udp any any -> any 53 (msg:"DNS UDP"; sid:100603; rev:1;)

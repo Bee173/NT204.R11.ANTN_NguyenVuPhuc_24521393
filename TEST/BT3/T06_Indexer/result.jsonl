@@ -1,0 +1,3 @@
+{"event_id": "specific_tcp", "candidate_sids": [100601, 100602]}
+{"event_id": "other_tcp", "candidate_sids": [100602]}
+{"event_id": "dns_udp", "candidate_sids": [100603]}
