@@ -1,0 +1,3 @@
+{"event_id": "uppercase_login", "detection_sids": [100901, 100902]}
+{"event_id": "lowercase_login", "detection_sids": [100902]}
+{"event_id": "unrelated_content", "detection_sids": []}
