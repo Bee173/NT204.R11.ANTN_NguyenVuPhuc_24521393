@@ -1,12 +1,14 @@
-# IDS — Packet Parser, Decoder, Preprocessor và Flow Tracker
+# IDS — Packet Pipeline, Flow Tracker và Snort Core Engine
 
-Chương trình thu thập packet từ network interface hoặc file PCAP, phân tích giao thức, giải mã dữ liệu, chuẩn hóa event và theo dõi flow hai chiều.
+Chương trình thu thập packet từ network interface hoặc file PCAP, phân tích giao thức, giải mã dữ liệu, chuẩn hóa event, theo dõi flow hai chiều và đánh giá Snort rule để sinh Detection Event.
 
-Toàn bộ bài tập dùng chung một chương trình với điểm chạy chính là `main.py`.
+Pipeline packet của BT1–BT2 chạy từ `main.py`. Core Engine của BT3 nằm trong `src/core_engine` và nhận normalized event cùng flow context từ pipeline.
 
 ## 1. Luồng xử lý
 
-Packet Capture → Parser → Decoder → Preprocessor → Flow Tracker → JSONL
+BT1–BT2: Packet Capture → Parser → Decoder → Preprocessor → Flow Tracker → JSONL
+
+BT3: Normalized Event + Flow Context → Evaluation Engine → Repository/Indexer → Matching Engine → Detection Event
 
 | Thành phần | Chức năng |
 |---|---|
@@ -15,6 +17,7 @@ Packet Capture → Parser → Decoder → Preprocessor → Flow Tracker → JSON
 | Decoder | Giải mã URL, HTTP form, HTML entity và SMTP/MIME |
 | Preprocessor | Kiểm tra field, chuẩn hóa dữ liệu và xác định chính sách xử lý |
 | Flow Tracker | Gom packet hai chiều, theo dõi trạng thái, thống kê và timeout |
+| Core Engine | Nạp Snort rule, chọn candidate, so khớp event/flow và sinh Detection Event |
 | Logger | Ghi event và flow theo định dạng JSON Lines |
 
 ## 2. Cấu trúc project
@@ -30,6 +33,15 @@ NT204.R11.ANTN/
 │   ├── preprocessor.py
 │   ├── flow_tracker.py
 │   ├── logger.py
+│   ├── core_engine/
+│   │   ├── rule_loader.py
+│   │   ├── rule_parser.py
+│   │   ├── rule_validator.py
+│   │   ├── rule_repository.py
+│   │   ├── matching_engine.py
+│   │   ├── evaluation_engine.py
+│   │   ├── detection_event.py
+│   │   └── core_engine.py
 │   └── parsers/
 │       ├── network.py
 │       ├── transport.py
@@ -40,13 +52,13 @@ NT204.R11.ANTN/
 │           └── smtp.py
 ├── TEST/
 │   ├── BT1/
-│   └── BT2/
+│   ├── BT2/
+│   └── BT3/
 ├── output/
 └── README.md
 ```
 
-`TEST/BT1` và `TEST/BT2` phân nhóm dữ liệu và script kiểm thử.
-Các test dùng chung chương trình ở thư mục gốc.
+`TEST/BT1`, `TEST/BT2` và `TEST/BT3` chứa dữ liệu, runner, kết quả và script xác minh cho từng bài tập.
 
 ## 3. Cài đặt
 
@@ -113,6 +125,17 @@ Chọn một trong hai nguồn `--interface` hoặc `--pcap`.
 File event và file flow phải khác nhau.
 
 Mỗi lần chạy, các file output được làm trống trước khi ghi kết quả mới.
+
+### Đánh giá event bằng Core Engine
+
+```python
+from src.core_engine.core_engine import CoreEngine
+
+engine = CoreEngine.from_rule_files(["rules/local.rules"])
+detections = engine.process_event(normalized_event, flow_context)
+```
+
+Có thể truyền `disabled_files` để bỏ qua file rule hoặc `disabled_sids` để vô hiệu hóa rule theo SID. `CoreEngine` tự lấy application data đã parse/decode từ event; có thể truyền `application_data` trực tiếp khi cần kiểm thử một payload cụ thể. Kết quả là tuple các Detection Event; một event có thể khớp nhiều rule.
 
 ## 5. Decoder
 
@@ -227,7 +250,31 @@ Quy ước:
 - Một packet SYN/ACK tăng cả `SYN_count` và `ACK_count`.
 - Event lưu snapshot flow tại thời điểm xử lý; packet sau không sửa snapshot trước.
 
-## 8. Output
+## 8. Core Engine và Snort rule
+
+Core Engine tách việc nạp/parse/index rule khỏi quá trình đánh giá event:
+
+- Rule Loader đọc nhiều file `.rules`, bỏ comment/dòng trống; cấu hình Core Engine cho phép vô hiệu hóa file hoặc rule theo SID.
+- Parser/Validator tạo Internal Rule Object và phân loại `valid`, `invalid` hoặc `unsupported` kèm lý do.
+- Repository/Indexer chọn candidate rule theo protocol và port trước khi matching.
+- Matching Engine kiểm tra header, flow/state, content và packet/TCP.
+- Evaluation Engine trả mọi rule cùng match và theo dõi số event, candidate cùng số match.
+- Detection Event Generator tạo output thống nhất cho bước alert/logging/response.
+
+Phạm vi rule bắt buộc đã hỗ trợ:
+
+| Nhóm | Thành phần |
+|---|---|
+| Header | `alert`, TCP/UDP, IPv4/CIDR, port đơn/range, `any`, `->`, `<>` |
+| Identification | `msg`, `sid`, `rev` |
+| Content | `content`, `nocase`, `offset`, `depth`, `distance`, `within` |
+| Packet/TCP | `flags`, `dsize` |
+| Flow | `to_server`, `to_client`, `established`, `not_established` |
+| Classification | `classtype`, `priority` |
+
+Rule hoặc keyword ngoài phạm vi được đánh dấu `unsupported` thay vì làm dừng engine. Detection Event gồm thông tin rule, timestamp, 5-tuple, protocol, application protocol, `flow_id` và chi tiết match.
+
+## 9. Output
 
 ### Event output
 
@@ -250,7 +297,7 @@ Mỗi dòng trong `flows.jsonl` là một flow đã được xuất.
 | `idle_timeout` | Flow hết hạn do không có packet mới |
 | `capture_end` | Xuất flow còn lại khi kết thúc capture |
 
-## 9. Kiểm thử
+## 10. Kiểm thử
 
 ### BT1
 
@@ -289,6 +336,27 @@ Số thứ tự thư mục được đặt theo thứ tự triển khai, nên c�
 Các test dựa trên PCAP có script tạo dữ liệu, file PCAP, kết quả JSONL và `verify.py`.
 Các test dùng event trực tiếp hoặc thời gian giả lập không cần PCAP.
 
+### BT3 và ánh xạ với đề
+
+| Thư mục trong `TEST/BT3` | Nội dung |
+|---|---|
+| `T01_Rule_loader` | Nạp rule hợp lệ, bỏ comment và dòng trống |
+| `T02_Invalid_rule` | Rule sai cú pháp không làm dừng engine |
+| `T03_Unsupported_keyword` | Keyword ngoài phạm vi được đánh dấu unsupported |
+| `T04_Rule_header` | Parse TCP, IP/CIDR và port/range |
+| `T05_Direction` | Direction `->` và `<>` |
+| `T06_Indexer` | Candidate rules theo IP, TCP, UDP và any |
+| `T07_Header_no_match` | Loại rule sai header trước content matching |
+| `T08_Flow_state` | `flow:to_server,established` |
+| `T09_Content_nocase` | Content phân biệt hoa thường và `nocase` |
+| `T10_Offset_depth` | Giới hạn vùng bằng `offset/depth` |
+| `T11_Distance_within` | Relative matching bằng `distance/within` |
+| `T12_Flags_dsize` | TCP flags và payload size |
+| `T13_Multiple_matches` | Một event khớp đồng thời nhiều rule |
+| `T14_Detection_event` | Detection Event đầy đủ các field bắt buộc |
+
+Mỗi thư mục T01–T14 có rule input, runner, kết quả JSONL và `verify.py` để tái hiện test độc lập.
+
 ### Ví dụ chạy test PCAP
 
 ```bash
@@ -307,9 +375,11 @@ python TEST/BT2/T09_TCP_handshake/verify.py
 ```bash
 python TEST/BT2/T08_Malformed_event/verify.py
 python TEST/BT2/T13_Idle_timeout/verify.py
+python TEST/BT3/T14_Detection_event/run_test.py
+python TEST/BT3/T14_Detection_event/verify.py
 ```
 
-## 10. Giới hạn hiện tại
+## 11. Giới hạn hiện tại
 
 - Parser network hiện hỗ trợ IPv4.
 - Không giải mã HTTPS/TLS, DoH/DoT hoặc dữ liệu mã hóa bằng mật mã.
@@ -318,10 +388,12 @@ python TEST/BT2/T13_Idle_timeout/verify.py
 - TCP tracking là trạng thái logic tối thiểu, chưa xác thực đầy đủ sequence/ACK của handshake.
 - Protocol ứng dụng có thể được suy đoán theo port khi không có payload.
 - Giới hạn Decoder được áp dụng sau parser, không phải giới hạn bộ nhớ toàn pipeline.
+- Core Engine chỉ hỗ trợ phạm vi Snort rule bắt buộc nêu trên; chưa hỗ trợ PCRE, byte operations, TLS decryption hoặc plugin/Lua.
+- Content matching dùng application data đã có trong normalized event, không tự ghép lại TCP stream.
 
-## 11. Khai báo sử dụng AI
+## 12. Khai báo sử dụng AI
 
-- **Công cụ:** ChatGPT.
+- **Công cụ:** ChatGPT/Codex.
 - **Mục đích:** Hỗ trợ phân tích yêu cầu, thiết kế module, giải thích code, viết code, tạo test và rà soát lỗi.
 - **Phần có sử dụng AI:** `main.py`, các module trong `src`, script kiểm thử trong `TEST` và nội dung README.
 - Người nộp có trách nhiệm kiểm tra kết quả chạy thực tế, hiểu và giải thích được mã nguồn đã nộp.
