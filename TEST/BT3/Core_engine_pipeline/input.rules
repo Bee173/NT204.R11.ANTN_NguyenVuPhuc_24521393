@@ -1,0 +1,4 @@
+alert tcp any any -> any 80 (msg:"Traversal exact"; flow:to_server,established; content:"../"; sid:101300; rev:1;)
+alert tcp any any -> any 80 (msg:"Traversal nocase"; content:"../"; nocase; sid:101301; rev:2;)
+alert tcp any any -> any 80 (msg:"Unsupported"; pcre:"/x/"; sid:101302; rev:1;)
+alert tcp any any -> any 80 (msg:"Missing sid"; rev:1;)
