@@ -1,0 +1,1 @@
+alert tcp any any -> any 80 (msg:"Established client request"; flow:to_server,established; sid:100801; rev:1;)
