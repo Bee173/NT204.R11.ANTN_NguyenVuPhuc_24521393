@@ -46,6 +46,10 @@ assert matched.to_dict() == {
     "matched": True,
     "reason": "matched",
     "sid": 101000,
+    "rev": 1,
+    "msg": "Engine match",
+    "priority": None,
+    "classtype": None,
     "matched_information": {
         "flow": "to_server,established",
         "flags": "PA",

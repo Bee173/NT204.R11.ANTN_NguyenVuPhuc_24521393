@@ -12,6 +12,10 @@ class RuleMatchResult:
     matched: bool
     reason: str
     sid: int | None = None
+    rev: int | None = None
+    msg: str | None = None
+    priority: int | None = None
+    classtype: str | None = None
     matched_information: dict = field(default_factory=dict)
 
     def to_dict(self):
@@ -19,6 +23,10 @@ class RuleMatchResult:
             "matched": self.matched,
             "reason": self.reason,
             "sid": self.sid,
+            "rev": self.rev,
+            "msg": self.msg,
+            "priority": self.priority,
+            "classtype": self.classtype,
             "matched_information": self.matched_information,
         }
 
@@ -52,9 +60,14 @@ def match_rule(rule: SnortRule, event, flow_context=None, application_data=None)
     if content:
         information["content"] = list(content)
 
+    priority = rule.first_option_value("priority")
     return RuleMatchResult(
         matched=True,
         reason="matched",
         sid=int(rule.first_option_value("sid")),
+        rev=int(rule.first_option_value("rev")),
+        msg=rule.first_option_value("msg"),
+        priority=int(priority) if priority is not None else None,
+        classtype=rule.first_option_value("classtype"),
         matched_information=information,
     )
