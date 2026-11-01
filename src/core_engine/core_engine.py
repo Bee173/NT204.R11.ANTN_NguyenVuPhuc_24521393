@@ -1,5 +1,6 @@
 import base64
 import binascii
+from dataclasses import replace
 
 from src.core_engine.detection_event import generate_detection_event
 from src.core_engine.evaluation_engine import RuleEvaluationEngine
@@ -48,11 +49,22 @@ class CoreEngine:
         self._evaluator = RuleEvaluationEngine(RuleRepository(self.rules))
 
     @classmethod
-    def from_rule_files(cls, file_paths, disabled_files=None):
+    def from_rule_files(
+        cls,
+        file_paths,
+        disabled_files=None,
+        disabled_sids=None,
+    ):
         loaded = load_rule_files(file_paths, disabled_files)
-        rules = tuple(
+        disabled = {str(sid).strip() for sid in (disabled_sids or ())}
+        parsed_rules = tuple(
             parse_and_validate_rule(candidate)
             for candidate in loaded.candidates
+        )
+        rules = tuple(
+            replace(rule, enabled=False)
+            if rule.first_option_value("sid") in disabled else rule
+            for rule in parsed_rules
         )
         return cls(rules, loaded.issues)
 

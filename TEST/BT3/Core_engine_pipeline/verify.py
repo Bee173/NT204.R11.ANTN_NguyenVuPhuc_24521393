@@ -47,4 +47,19 @@ assert engine.statistics == {
     "matches": 2,
 }
 
+configured_engine = CoreEngine.from_rule_files(
+    [folder / "input.rules"],
+    disabled_sids={101300},
+)
+assert configured_engine.rule_count == 1
+assert [
+    int(rule.first_option_value("sid"))
+    for rule in configured_engine.rejected_rules
+    if rule.first_option_value("sid") is not None
+] == [101300, 101302]
+assert [
+    detection["sid"]
+    for detection in configured_engine.process_event(event, flow_context)
+] == [101301]
+
 print("PASS: Core Engine nối rule files, evaluation và detection pipeline đúng")
