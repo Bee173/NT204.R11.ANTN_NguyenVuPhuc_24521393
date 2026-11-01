@@ -1,0 +1,1 @@
+alert tcp any any -> any 80 (msg:"Relative credentials"; content:"USER"; content:"PASS"; distance:4; within:8; sid:101101; rev:1;)
