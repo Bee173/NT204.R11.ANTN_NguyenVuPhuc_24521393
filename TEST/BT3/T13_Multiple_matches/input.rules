@@ -1,0 +1,2 @@
+alert tcp any any -> any 80 (msg:"Evil content"; content:"evil"; sid:101301; rev:1;)
+alert tcp any any -> any 80 (msg:"Four-byte push"; flags:PA; dsize:4; sid:101302; rev:1;)

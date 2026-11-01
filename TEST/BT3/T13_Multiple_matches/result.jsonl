@@ -1,0 +1,2 @@
+{"event_id": "two_rules_match", "detection_sids": [101301, 101302]}
+{"event_id": "one_rule_matches", "detection_sids": [101302]}

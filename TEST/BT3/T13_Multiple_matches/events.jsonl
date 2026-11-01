@@ -1,0 +1,2 @@
+{"event_id":"two_rules_match","timestamp":1700000016.0,"transport_protocol":"TCP","application_protocol":"HTTP","src_ip":"10.0.0.5","src_port":50000,"dst_ip":"192.168.1.20","dst_port":80,"flow_id":"F1301","payload_length":4,"transport":{"tcp_flags":"PA"},"application":{"body":"evil"}}
+{"event_id":"one_rule_matches","timestamp":1700000017.0,"transport_protocol":"TCP","application_protocol":"HTTP","src_ip":"10.0.0.5","src_port":50000,"dst_ip":"192.168.1.20","dst_port":80,"flow_id":"F1302","payload_length":4,"transport":{"tcp_flags":"PA"},"application":{"body":"safe"}}
