@@ -1,0 +1,2 @@
+{"event_id":"forward","transport_protocol":"TCP","src_ip":"10.0.0.5","src_port":15000,"dst_ip":"192.168.1.10","dst_port":80}
+{"event_id":"reverse","transport_protocol":"TCP","src_ip":"192.168.1.10","src_port":80,"dst_ip":"10.0.0.5","dst_port":15000}

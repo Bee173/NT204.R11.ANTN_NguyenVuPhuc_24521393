@@ -1,0 +1,2 @@
+alert tcp 10.0.0.0/24 10000:20000 -> 192.168.1.10 80 (msg:"Forward only"; sid:100501; rev:1;)
+alert tcp 10.0.0.0/24 10000:20000 <> 192.168.1.10 80 (msg:"Bidirectional"; sid:100502; rev:1;)
