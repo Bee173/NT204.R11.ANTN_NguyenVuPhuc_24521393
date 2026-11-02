@@ -22,20 +22,21 @@ def _application_data(event):
     if not isinstance(application, dict):
         return None
 
-    parts = []
+    data = {
+        field: value
+        for field in APPLICATION_FIELDS
+        if isinstance((value := application.get(field)), str)
+    }
     raw_payload = application.get("raw_payload_b64")
     if isinstance(raw_payload, str):
         try:
-            parts.append(base64.b64decode(raw_payload, validate=True))
+            data["raw_payload"] = base64.b64decode(
+                raw_payload, validate=True
+            )
         except (ValueError, binascii.Error):
             pass
 
-    parts.extend(
-        value.encode("utf-8")
-        for field in APPLICATION_FIELDS
-        if isinstance((value := application.get(field)), str)
-    )
-    return b"\n".join(parts) if parts else None
+    return data or None
 
 
 class CoreEngine:

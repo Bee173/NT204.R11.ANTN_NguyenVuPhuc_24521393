@@ -35,6 +35,17 @@ def _no_match(reason):
     return RuleMatchResult(matched=False, reason=reason)
 
 
+def _match_content(rule, data):
+    if not isinstance(data, dict):
+        return match_rule_content(rule, data), None
+
+    for name, value in data.items():
+        content = match_rule_content(rule, value)
+        if content is not None:
+            return content, name
+    return match_rule_content(rule, None), None
+
+
 def match_rule(rule: SnortRule, event, flow_context=None, application_data=None):
     if rule.status != RuleStatus.VALID:
         return _no_match("rule")
@@ -45,7 +56,7 @@ def match_rule(rule: SnortRule, event, flow_context=None, application_data=None)
     if not match_rule_packet(rule, event):
         return _no_match("packet")
 
-    content = match_rule_content(rule, application_data)
+    content, matched_field = _match_content(rule, application_data)
     if content is None:
         return _no_match("content")
 
@@ -59,6 +70,8 @@ def match_rule(rule: SnortRule, event, flow_context=None, application_data=None)
         information["dsize"] = int(dsize)
     if content:
         information["content"] = list(content)
+        if matched_field is not None:
+            information["matched_field"] = matched_field
 
     priority = rule.first_option_value("priority")
     return RuleMatchResult(
