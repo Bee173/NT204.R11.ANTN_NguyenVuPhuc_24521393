@@ -33,6 +33,18 @@ valid_rule = parse_and_validate_rule(candidate(
 assert valid_rule.status == RuleStatus.VALID
 assert valid_rule.reasons == ()
 
+for protocol, flags, expected_reason in (
+    ("tcp", "Z", "flags: invalid TCP flags Z"),
+    ("udp", "PA", "flags: requires TCP protocol"),
+):
+    invalid_flags = parse_and_validate_rule(candidate(
+        f"alert {protocol} any any -> any any "
+        f'(msg:"Invalid flags"; flags:{flags}; sid:100106; rev:1;)',
+        7,
+    ))
+    assert invalid_flags.status == RuleStatus.INVALID
+    assert expected_reason in invalid_flags.reasons
+
 invalid_syntax = parse_and_validate_rule(candidate(
     "alert tcp any any -> any 80",
     2,
