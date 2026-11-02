@@ -20,6 +20,7 @@ SINGLE_VALUE_KEYWORDS = {
     "priority",
 }
 CONTENT_MODIFIERS = {"nocase", "offset", "depth", "distance", "within"}
+TCP_FLAGS = set("FSRPAUEC")
 
 
 def _validate_ip(value, field, invalid, unsupported):
@@ -119,6 +120,14 @@ def validate_rule(rule: SnortRule):
         for option in grouped.get(keyword, []):
             if option.value is None or not option.value.strip():
                 invalid.append(f"{keyword}: non-empty value required")
+
+    for option in grouped.get("flags", []):
+        if option.value and option.value.strip():
+            flags = option.value.strip().upper()
+            if header.protocol == "udp":
+                invalid.append("flags: requires TCP protocol")
+            elif header.protocol == "tcp" and not set(flags) <= TCP_FLAGS:
+                invalid.append(f"flags: invalid TCP flags {flags}")
 
     for keyword in ("sid", "rev", "priority"):
         for option in grouped.get(keyword, []):
