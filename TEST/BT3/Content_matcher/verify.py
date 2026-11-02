@@ -68,6 +68,14 @@ assert match_rule_content(
     b"USER xx PASS data",
 ) is None
 
+backtracking = make_rule(
+    'content:"A"; content:"B"; distance:1; within:3;'
+)
+assert match_rule_content(backtracking, b"AxxxxA_B") == (
+    {"content": "A", "start": 5, "end": 6},
+    {"content": "B", "start": 7, "end": 8},
+)
+
 assert match_rule_content(make_rule(""), b"anything") == ()
 assert match_rule_content(plain, None) is None
 
