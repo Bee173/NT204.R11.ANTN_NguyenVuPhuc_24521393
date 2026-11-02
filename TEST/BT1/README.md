@@ -7,7 +7,7 @@ Tài liệu này tổng hợp các kịch bản kiểm thử cho module Packet C
 - Số kịch bản bắt buộc: **12**.
 - Số kịch bản thành công: **12/12**.
 - Kết luận: **PASS - đáp ứng toàn bộ test case bắt buộc của Bài tập 1**.
-- Lần xác minh gần nhất: **12/10/2026**.
+- Lần xác minh gần nhất: **02/11/2026**.
 
 ## Chi tiết kịch bản
 

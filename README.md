@@ -132,10 +132,10 @@ Mỗi lần chạy, các file output được làm trống trước khi ghi kế
 from src.core_engine.core_engine import CoreEngine
 
 engine = CoreEngine.from_rule_files(["rules/local.rules"])
-detections = engine.process_event(normalized_event, flow_context)
+detections = engine.process_event(normalized_event)
 ```
 
-Có thể truyền `disabled_files` để bỏ qua file rule hoặc `disabled_sids` để vô hiệu hóa rule theo SID. `CoreEngine` tự lấy application data đã parse/decode từ event; có thể truyền `application_data` trực tiếp khi cần kiểm thử một payload cụ thể. Kết quả là tuple các Detection Event; một event có thể khớp nhiều rule.
+Có thể truyền `disabled_files` để bỏ qua file rule hoặc `disabled_sids` để vô hiệu hóa rule theo SID. `CoreEngine` tự dùng `flow_context` do Flow Tracker gắn vào event và lấy application data đã parse/decode; vẫn có thể truyền hai giá trị này trực tiếp khi cần kiểm thử. Kết quả là tuple các Detection Event; một event có thể khớp nhiều rule.
 
 ## 5. Decoder
 
@@ -203,6 +203,8 @@ Endpoint A/B được sắp xếp nhất quán:
 - `backward`: B→A.
 - Endpoint A không nhất thiết là client.
 
+Event được gắn thêm `flow_context` gồm `to_server`/`to_client`, trạng thái kết nối và `flow_id` để Core Engine đánh giá rule flow trực tiếp. Với TCP, bên gửi SYN đầu tiên là client; flow giữa dòng và UDP dùng bên gửi packet đầu tiên làm giá trị dự phòng nhất quán.
+
 `flow_id` được tạo từ key hai chiều, timestamp bắt đầu và số phiên riêng của key.
 Flow khác không làm thay đổi số phiên của key này.
 Phiên mới dùng lại cùng 5-tuple có định danh riêng.
@@ -258,6 +260,9 @@ Core Engine tách việc nạp/parse/index rule khỏi quá trình đánh giá e
 - Parser/Validator tạo Internal Rule Object và phân loại `valid`, `invalid` hoặc `unsupported` kèm lý do.
 - Repository/Indexer chọn candidate rule theo protocol và port trước khi matching.
 - Matching Engine kiểm tra header, flow/state, content và packet/TCP.
+- Validator từ chối TCP flag không hợp lệ và relative modifier không có content trước đó.
+- Content Matcher backtrack khi occurrence đầu không thỏa `distance/within`.
+- Application data được match riêng theo từng field, không nối path/body/query thành một buffer giả.
 - Evaluation Engine trả mọi rule cùng match và theo dõi số event, candidate cùng số match.
 - Detection Event Generator tạo output thống nhất cho bước alert/logging/response.
 
@@ -272,7 +277,7 @@ Phạm vi rule bắt buộc đã hỗ trợ:
 | Flow | `to_server`, `to_client`, `established`, `not_established` |
 | Classification | `classtype`, `priority` |
 
-Rule hoặc keyword ngoài phạm vi được đánh dấu `unsupported` thay vì làm dừng engine. Detection Event gồm thông tin rule, timestamp, 5-tuple, protocol, application protocol, `flow_id` và chi tiết match.
+Rule hoặc keyword ngoài phạm vi được đánh dấu `unsupported` thay vì làm dừng engine. Detection Event gồm thông tin rule, timestamp, 5-tuple, protocol, application protocol, `flow_id`, content match và `matched_field` tương ứng.
 
 ## 9. Output
 
@@ -283,7 +288,7 @@ Mỗi dòng trong `events.jsonl` là một event, gồm:
 - Thông tin packet và kết quả parser.
 - Dữ liệu decoded và trạng thái decode.
 - Trạng thái preprocessing và lý do xử lý.
-- `flow_id`, `direction`, `track_status`.
+- `flow_id`, `direction`, `flow_context`, `track_status`.
 - Snapshot `flow` nếu packet được tracking.
 - `track_reason` khi tracking gặp dữ liệu không hợp lệ.
 
@@ -312,6 +317,8 @@ Các nhóm test parser nằm trong `TEST/BT1`:
 
 Test HTTP kiểm tra header name ở dạng chữ thường, phù hợp output sau Preprocessor.
 
+Kết quả xác minh gần nhất ngày **02/11/2026**: **12/12 PASS**.
+
 ### BT2 và ánh xạ với đề
 
 Số thứ tự thư mục được đặt theo thứ tự triển khai, nên có một số khác biệt với ID trong đề.
@@ -336,6 +343,8 @@ Số thứ tự thư mục được đặt theo thứ tự triển khai, nên c�
 Các test dựa trên PCAP có script tạo dữ liệu, file PCAP, kết quả JSONL và `verify.py`.
 Các test dùng event trực tiếp hoặc thời gian giả lập không cần PCAP.
 
+Kết quả xác minh gần nhất ngày **02/11/2026**: **15/15 PASS**, gồm test HTTP form bổ sung.
+
 ### BT3 và ánh xạ với đề
 
 | Thư mục trong `TEST/BT3` | Nội dung |
@@ -353,9 +362,16 @@ Các test dùng event trực tiếp hoặc thời gian giả lập không cần 
 | `T11_Distance_within` | Relative matching bằng `distance/within` |
 | `T12_Flags_dsize` | TCP flags và payload size |
 | `T13_Multiple_matches` | Một event khớp đồng thời nhiều rule |
-| `T14_Detection_event` | Detection Event đầy đủ các field bắt buộc |
+| `T14_Detection_event` | Detection Event đầy đủ field bắt buộc và `matched_field` |
 
 Mỗi thư mục T01–T14 có rule input, runner, kết quả JSONL và `verify.py` để tái hiện test độc lập.
+
+Kết quả xác minh gần nhất ngày **02/11/2026**:
+
+- **14/14** test case bắt buộc PASS.
+- **14/14** verifier module và integration bổ sung PASS.
+- Tổng cộng **28/28 verifier PASS**.
+- Chi tiết nằm trong `TEST/BT3/README.md`.
 
 ### Ví dụ chạy test PCAP
 
@@ -389,7 +405,7 @@ python TEST/BT3/T14_Detection_event/verify.py
 - Protocol ứng dụng có thể được suy đoán theo port khi không có payload.
 - Giới hạn Decoder được áp dụng sau parser, không phải giới hạn bộ nhớ toàn pipeline.
 - Core Engine chỉ hỗ trợ phạm vi Snort rule bắt buộc nêu trên; chưa hỗ trợ PCRE, byte operations, TLS decryption hoặc plugin/Lua.
-- Content matching dùng application data đã có trong normalized event, không tự ghép lại TCP stream.
+- Content matching dùng từng field application data trong normalized event, không match xuyên field và không tự ghép lại TCP stream.
 
 ## 12. Khai báo sử dụng AI
 

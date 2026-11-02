@@ -8,7 +8,7 @@ Tài liệu này tổng hợp các kịch bản kiểm thử cho Decoder, Prepro
 - Test bổ sung cho HTTP form decoding: **1**.
 - Số test case thành công: **15/15**.
 - Kết luận: **PASS - toàn bộ kịch bản hiện có đều thành công**.
-- Lần xác minh gần nhất: **12/10/2026**.
+- Lần xác minh gần nhất: **02/11/2026**.
 
 ## Chi tiết kịch bản
 
