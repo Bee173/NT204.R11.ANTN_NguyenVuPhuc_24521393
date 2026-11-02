@@ -14,7 +14,11 @@ def _content_groups(rule):
     return groups
 
 
-def _find(payload, group, previous_end):
+def _find_matches(payload, groups, index=0, previous_end=None):
+    if index == len(groups):
+        return ()
+
+    group = groups[index]
     relative = previous_end is not None and (
         "distance" in group or "within" in group
     )
@@ -33,7 +37,21 @@ def _find(payload, group, previous_end):
     if "nocase" in group:
         needle = needle.lower()
         haystack = haystack.lower()
-    return haystack.find(needle, start, min(stop, len(payload)))
+
+    stop = min(stop, len(payload))
+    position = haystack.find(needle, start, stop)
+    while position >= 0:
+        end = position + len(needle)
+        remaining = _find_matches(payload, groups, index + 1, end)
+        if remaining is not None:
+            match = {
+                "content": group["content"],
+                "start": position,
+                "end": end,
+            }
+            return (match, *remaining)
+        position = haystack.find(needle, position + 1, stop)
+    return None
 
 
 def match_rule_content(rule: SnortRule, data):
@@ -50,16 +68,4 @@ def match_rule_content(rule: SnortRule, data):
     else:
         return None
 
-    matches = []
-    previous_end = None
-    for group in groups:
-        start = _find(payload, group, previous_end)
-        if start < 0:
-            return None
-        previous_end = start + len(group["content"].encode("utf-8"))
-        matches.append({
-            "content": group["content"],
-            "start": start,
-            "end": previous_end,
-        })
-    return tuple(matches)
+    return _find_matches(payload, groups)
