@@ -29,6 +29,7 @@ assert results == [{
     "matched_information": {
         "flow": "to_server,established",
         "content": [{"content": "../", "start": 0, "end": 3}],
+        "matched_field": "body",
     },
 }]
 
