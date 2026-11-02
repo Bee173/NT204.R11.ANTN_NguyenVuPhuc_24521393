@@ -77,6 +77,11 @@ class CoreEngine:
         return self._evaluator.statistics
 
     def process_event(self, event, flow_context=None, application_data=None):
+        if flow_context is None and isinstance(event, dict):
+            embedded_context = event.get("flow_context")
+            if isinstance(embedded_context, dict):
+                flow_context = embedded_context
+
         data = (
             _application_data(event)
             if application_data is None else application_data

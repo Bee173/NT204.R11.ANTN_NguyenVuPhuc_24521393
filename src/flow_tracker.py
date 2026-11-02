@@ -24,6 +24,7 @@ class FlowTracker:
     def _track_event_core(self, event):
         event["flow_id"] = None
         event["direction"] = None
+        event["flow_context"] = None
         event["track_status"] = "skipped"
 
         if event.get("processing_action") == "skip":
@@ -81,6 +82,7 @@ class FlowTracker:
                 "FIN_count": 0,
                 "RST_count": 0,
                 "state": "NEW" if protocol == "TCP" else "ACTIVE",
+                "_client_endpoint": source,
                 "_syn_source": None,
                 "_synack_seen": False,
             }
@@ -117,6 +119,7 @@ class FlowTracker:
             if "S" in flags and "A" not in flags:
                 if flow["state"] == "NEW":
                     flow["_syn_source"] = source
+                    flow["_client_endpoint"] = source
                     flow["state"] = "HANDSHAKE"
 
             # SYN/ACK phải đến từ bên đối diện.
@@ -177,6 +180,15 @@ class FlowTracker:
 
         event["flow_id"] = flow["flow_id"]
         event["direction"] = direction
+        event["flow_context"] = {
+            "direction": (
+                "to_server"
+                if source == flow["_client_endpoint"]
+                else "to_client"
+            ),
+            "state": flow["state"],
+            "flow_id": flow["flow_id"],
+        }
         event["track_status"] = "tracked"
 
         # Snapshot riêng để packet sau không sửa kết quả packet trước.
@@ -242,6 +254,7 @@ class FlowTracker:
 
         event["flow_id"] = None
         event["direction"] = None
+        event["flow_context"] = None
 
         if event.get("processing_action") == "skip":
             event["track_status"] = "skipped"
