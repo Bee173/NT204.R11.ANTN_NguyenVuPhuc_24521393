@@ -45,6 +45,19 @@ for protocol, flags, expected_reason in (
     assert invalid_flags.status == RuleStatus.INVALID
     assert expected_reason in invalid_flags.reasons
 
+for sid, keyword in enumerate(("distance", "within"), start=100107):
+    invalid_relative = parse_and_validate_rule(candidate(
+        "alert tcp any any -> any any "
+        f'(msg:"Invalid relative"; content:"A"; {keyword}:1; '
+        f"sid:{sid}; rev:1;)",
+        8,
+    ))
+    assert invalid_relative.status == RuleStatus.INVALID
+    assert (
+        f"{keyword}: requires a previous content option"
+        in invalid_relative.reasons
+    )
+
 invalid_syntax = parse_and_validate_rule(candidate(
     "alert tcp any any -> any 80",
     2,
