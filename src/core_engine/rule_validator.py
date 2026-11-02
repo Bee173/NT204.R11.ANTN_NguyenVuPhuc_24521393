@@ -156,11 +156,15 @@ def validate_rule(rule: SnortRule):
         if {"established", "not_established"}.issubset(values):
             invalid.append("flow: conflicting states")
 
-    content_seen = False
+    content_count = 0
     for option in rule.options:
         if option.keyword == "content":
-            content_seen = True
-        elif option.keyword in CONTENT_MODIFIERS and not content_seen:
+            content_count += 1
+        elif option.keyword in {"distance", "within"} and content_count < 2:
+            invalid.append(
+                f"{option.keyword}: requires a previous content option"
+            )
+        elif option.keyword in CONTENT_MODIFIERS and not content_count:
             invalid.append(
                 f"{option.keyword}: requires a preceding content option"
             )
