@@ -8,7 +8,9 @@ sys.path.insert(0, str(folder.parents[2]))
 
 try:
     from src.core_engine.core_engine import CoreEngine
+    from src.core_engine.rule_loader import RuleCandidate
     from src.core_engine.rule_model import RuleStatus
+    from src.core_engine.rule_validator import parse_and_validate_rule
 except ModuleNotFoundError as error:
     print(f"FAIL: Core Engine pipeline chưa được triển khai: {error}")
     raise SystemExit(1) from error
@@ -61,5 +63,23 @@ assert [
     detection["sid"]
     for detection in configured_engine.process_event(event, flow_context)
 ] == [101301]
+
+field_rule = parse_and_validate_rule(RuleCandidate(
+    raw=(
+        'alert tcp any any -> any 80 (msg:"Field isolation"; '
+        'content:"A"; content:"B"; distance:1; within:3; '
+        "sid:101303; rev:1;)"
+    ),
+    source="field.rules",
+    line_number=1,
+))
+field_engine = CoreEngine((field_rule,))
+field_event = dict(event)
+field_event["application"] = {"decoded_path": "A", "decoded_body": "B"}
+assert field_engine.process_event(field_event) == ()
+
+field_event["application"] = {"decoded_path": "A_B"}
+detection = field_engine.process_event(field_event)[0]
+assert detection["matched_information"]["matched_field"] == "decoded_path"
 
 print("PASS: Core Engine nối rule files, evaluation và detection pipeline đúng")
