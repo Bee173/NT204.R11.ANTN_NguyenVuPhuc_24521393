@@ -6,10 +6,10 @@ Tài liệu này tổng hợp các kịch bản kiểm thử cho Core Engine và
 
 - Số test case bắt buộc theo đề: **14**.
 - Số test case bắt buộc thành công: **14/14**.
-- Số verifier module và integration bổ sung: **14/14**.
-- Tổng số verifier thành công: **28/28**.
+- Số verifier module và integration bổ sung: **15/15**.
+- Tổng số verifier thành công: **29/29**.
 - Kết luận: **PASS - đáp ứng toàn bộ test case bắt buộc của Bài tập 3**.
-- Lần xác minh gần nhất: **02/11/2026**.
+- Lần xác minh gần nhất: **10/11/2026**.
 
 ## Test case bắt buộc
 
@@ -48,6 +48,7 @@ Tài liệu này tổng hợp các kịch bản kiểm thử cho Core Engine và
 | `Detection_event` | Detection Event thống nhất |
 | `Core_engine_pipeline` | Pipeline, field isolation và `matched_field` |
 | `Flow_context_integration` | Tích hợp Flow Tracker của BT2 với Core Engine |
+| `Main_integration` | Chạy PCAP end-to-end qua `main.py` và ghi Detection Event |
 
 ## Cách chạy lại test bắt buộc
 

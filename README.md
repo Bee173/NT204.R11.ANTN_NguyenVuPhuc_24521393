@@ -2,13 +2,11 @@
 
 Chương trình thu thập packet từ network interface hoặc file PCAP, phân tích giao thức, giải mã dữ liệu, chuẩn hóa event, theo dõi flow hai chiều và đánh giá Snort rule để sinh Detection Event.
 
-Pipeline packet của BT1–BT2 chạy từ `main.py`. Core Engine của BT3 nằm trong `src/core_engine` và nhận normalized event cùng flow context từ pipeline.
+`main.py` chạy pipeline BT1–BT2 và tùy chọn nối trực tiếp Core Engine của BT3 khi có `--rules`.
 
 ## 1. Luồng xử lý
 
-BT1–BT2: Packet Capture → Parser → Decoder → Preprocessor → Flow Tracker → JSONL
-
-BT3: Normalized Event + Flow Context → Evaluation Engine → Repository/Indexer → Matching Engine → Detection Event
+Packet Capture → Parser → Decoder → Preprocessor → Flow Tracker → Core Engine → Detection Event/JSONL
 
 | Thành phần | Chức năng |
 |---|---|
@@ -120,11 +118,26 @@ python main.py \
 | `--max-form-fields` | `1000` | Giới hạn số field HTTP form |
 | `--allow-invalid` | Không bật | Cho phép event invalid tiếp tục; Tracker vẫn kiểm tra dữ liệu |
 | `--allow-unsupported` | Không bật | Cho phép protocol chưa hỗ trợ tiếp tục; Tracker chỉ theo dõi TCP/UDP |
+| `--rules` | Không có | Một hoặc nhiều file Snort rule; có giá trị thì bật Core Engine |
+| `--detection-output` | `output/detections.jsonl` | File Detection Event khi Core Engine được bật |
 
 Chọn một trong hai nguồn `--interface` hoặc `--pcap`.
 File event và file flow phải khác nhau.
 
 Mỗi lần chạy, các file output được làm trống trước khi ghi kết quả mới.
+
+### Chạy end-to-end với Core Engine
+
+```bash
+python main.py \
+  --pcap TEST/BT2/T01_HTTP_URL_decode/http_url_decode.pcap \
+  --rules TEST/BT3/Main_integration/input.rules \
+  --output output/events.jsonl \
+  --flow-output output/flows.jsonl \
+  --detection-output output/detections.jsonl
+```
+
+Rule match được in với tiền tố `[ALERT]` và ghi đầy đủ vào `detections.jsonl`.
 
 ### Đánh giá event bằng Core Engine
 
@@ -366,11 +379,11 @@ Kết quả xác minh gần nhất ngày **02/11/2026**: **15/15 PASS**, gồm t
 
 Mỗi thư mục T01–T14 có rule input, runner, kết quả JSONL và `verify.py` để tái hiện test độc lập.
 
-Kết quả xác minh gần nhất ngày **02/11/2026**:
+Kết quả xác minh gần nhất ngày **10/11/2026**:
 
 - **14/14** test case bắt buộc PASS.
-- **14/14** verifier module và integration bổ sung PASS.
-- Tổng cộng **28/28 verifier PASS**.
+- **15/15** verifier module và integration bổ sung PASS.
+- Tổng cộng **29/29 verifier PASS**.
 - Chi tiết nằm trong `TEST/BT3/README.md`.
 
 ### Ví dụ chạy test PCAP
