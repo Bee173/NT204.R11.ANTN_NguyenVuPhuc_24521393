@@ -1,0 +1,2 @@
+alert tcp any any -> any 80 (msg:"SQL injection query"; flow:to_server,not_established; content:"' OR 1=1"; sid:101501; rev:1;)
+alert tcp any any -> any 80 (msg:"HTTP push payload"; flags:PA; dsize:62; sid:101502; rev:1;)

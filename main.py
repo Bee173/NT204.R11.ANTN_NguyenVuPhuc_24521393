@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Event, Lock, Thread
 
 from src.capture import capture_live, capture_pcap
+from src.core_engine.core_engine import CoreEngine
 from src.pipeline import parse_packet
 from src.decoder import decode_event
 from src.preprocessor import preprocess_event
@@ -45,7 +46,27 @@ def build_parser():
     )
     parser.add_argument("--allow-invalid", action="store_true")
     parser.add_argument("--allow-unsupported", action="store_true")
+    parser.add_argument(
+        "--rules",
+        nargs="+",
+        help="Snort rule files used by the Core Engine",
+    )
+    parser.add_argument(
+        "--detection-output",
+        default="output/detections.jsonl",
+        help="JSONL output for Detection Events",
+    )
     return parser
+
+
+def evaluate_event(engine, event):
+    if (
+        engine is None
+        or not isinstance(event, dict)
+        or event.get("processing_action") != "continue"
+    ):
+        return ()
+    return engine.process_event(event)
 
 
 def main():
@@ -54,9 +75,29 @@ def main():
 
     if Path(args.output).resolve() == Path(args.flow_output).resolve():
         parser.error("--output and --flow-output must be different files")
+    if args.rules and Path(args.detection_output).resolve() in {
+        Path(args.output).resolve(),
+        Path(args.flow_output).resolve(),
+    }:
+        parser.error(
+            "--detection-output must be different from event and flow outputs"
+        )
 
     prepare_output(args.output)
     prepare_output(args.flow_output)
+
+    engine = None
+    if args.rules:
+        prepare_output(args.detection_output)
+        engine = CoreEngine.from_rule_files(args.rules)
+        for issue in engine.load_issues:
+            print(f"[RULE LOAD WARNING] {issue.source}: {issue.reason}")
+        for rule in engine.rejected_rules:
+            reasons = ", ".join(rule.reasons) or "disabled"
+            print(
+                f"[RULE {rule.status.value.upper()}] "
+                f"{rule.source}:{rule.line_number}: {reasons}"
+            )
 
     packet_counter = count(1)
     tracker = FlowTracker(args.tcp_timeout, args.udp_timeout)
@@ -80,6 +121,7 @@ def main():
             "skip_unsupported": not args.allow_unsupported,
         })
 
+        detections = ()
         with lock:
             # PCAP dùng timestamp packet; live dùng thời gian hiện tại.
             now = time.time() if args.interface else event.get("timestamp")
@@ -87,6 +129,10 @@ def main():
                 tracker.expire_flows(now)
 
             event = tracker.track_event(event)
+
+            detections = evaluate_event(engine, event)
+            for detection in detections:
+                log_event(detection, args.detection_output)
 
             # Xuất ngay flow vừa CLOSED/RESET.
             if now is not None:
@@ -101,6 +147,13 @@ def main():
             f"{event.get('transport_protocol')} "
             f"{event.get('application_protocol')}"
         )
+        for detection in detections:
+            print(
+                f"[ALERT] sid={detection['sid']} "
+                f"msg={detection['msg']} "
+                f"{detection['src_ip']}:{detection['src_port']} -> "
+                f"{detection['dst_ip']}:{detection['dst_port']}"
+            )
 
     def check_live_timeout():
         while not stop_timer.wait(1):
